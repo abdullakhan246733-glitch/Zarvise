@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My JARVIS — TradingView Live Webhook Advanced</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#07111f;color:#eaf6ff;font-family:Arial,sans-serif;min-height:100vh;display:flex;justify-content:center}
+  .app{width:100%;max-width:520px;padding:22px 16px}
+  .title{text-align:center;font-size:32px;font-weight:700;letter-spacing:3px;margin-top:20px}
+  .status{text-align:center;color:#7dd3fc;margin:8px 0 25px}
+  .orb{width:150px;height:150px;border-radius:50%;margin:0 auto 25px;border:2px solid #38bdf8;box-shadow:0 0 25px #0ea5e9, inset 0 0 25px #0ea5e9;display:flex;align-items:center;justify-content:center;font-size:48px}
+  .orb.listening{animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(1.08);box-shadow:0 0 50px #38bdf8,inset 0 0 35px #38bdf8}}
+  .card{background:#0d1b2a;border:1px solid #18364d;border-radius:16px;padding:15px;margin-bottom:14px}
+  .label{font-size:12px;color:#7dd3fc;margin-bottom:7px}
+  .text{min-height:28px;line-height:1.45}
+  button{width:100%;border:0;border-radius:14px;padding:16px;background:#0284c7;color:white;font-size:17px;font-weight:700}
+  button:active{transform:scale(.98)}
+  .small{margin-top:12px;text-align:center;color:#8da7b8;font-size:12px;line-height:1.5}
+
+<style>
+.advanced{margin-top:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+select{width:100%;padding:12px;border-radius:12px;border:1px solid #24455c;background:#091522;color:white}
+.analyze{margin-top:10px;background:#0ea5e9}
+.result{margin-top:12px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#123047;border:1px solid #245a78;font-size:12px}
+.trade{font-size:21px;font-weight:800;margin:8px 0}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.kv div{background:#091522;border-radius:10px;padding:10px}
+.kv b{display:block;font-size:11px;color:#7dd3fc;margin-bottom:4px}
+.good{border-color:#19735a}.warn{border-color:#7a5a19}
+ul{padding-left:20px;margin:8px 0}
+hr{border:0;border-top:1px solid #18364d;margin:12px 0}
+@media(max-width:380px){.grid,.kv{grid-template-columns:1fr}}
+.chat-history{max-height:260px;overflow:auto;margin-top:10px}
+.msg{padding:9px 11px;border-radius:12px;margin:7px 0;line-height:1.4}
+.msg.you{background:#123047}
+.msg.jarvis{background:#091522;border:1px solid #18364d}
+
+
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title">J A R V I S</div>
+  <div class="status" id="status">Ready</div>
+  <div class="orb" id="orb">🤖</div>
+
+  <div class="card">
+    <div class="label">YOU</div>
+    <div class="text" id="you">Mic button dabakar bolo...</div>
+  </div>
+
+  <div class="card">
+    <div class="label">JARVIS</div>
+    <div class="text" id="jarvis">Hello Sir. Main ready hoon.</div>
+  </div>
+
+  <button id="mic">🎙️ Talk to JARVIS</button>
+  
+
+<div class="card" id="chatCard">
+  <div class="label">💬 JARVIS AI CHAT</div>
+  <textarea id="textInput" placeholder="Type your question..." style="width:100%;min-height:90px;padding:12px;border-radius:12px;border:1px solid #24455c;background:#091522;color:white;resize:vertical"></textarea>
+  <button id="sendText" style="margin-top:10px">🚀 Ask JARVIS</button>
+  <div class="small">AI key is kept in this browser only. For a production app, use a secure backend proxy.</div><div class="small">Smart mode: Poe/OpenAI AI chat + voice + memory + quick web actions + calculator + battery check + TradingView analysis.</div>
+</div>
+
+<div class="card advanced">
+  <div class="label">🎙️ MOBILE MIC FIX</div>
+  <div class="small">
+    Agar “Mic error: not-allowed” aaye, Chrome → site/page permissions → Microphone → Allow karein.
+    Is HTML ko <b>content://</b> se kholne par kuch Android/Chrome setups speech recognition block karte hain.
+    Aise case me file ko HTTPS/localhost web page ke through open karna zaroori ho sakta hai.
+  </div>
+</div>
+
+<div class="card advanced" id="aiSettings">
+  <div class="label">🧠 AI BRAIN — OpenAI + Poe</div>
+  <select id="aiProvider" style="width:100%;padding:12px;border-radius:12px;border:1px solid #24455c;background:#091522;color:white">
+    <option value="poe">Poe API</option>
+    <option value="openai">OpenAI API</option>
+  </select>
+  <input id="apiKey" type="password" placeholder="Poe API key" style="width:100%;margin-top:9px;padding:12px;border-radius:12px;border:1px solid #24455c;background:#091522;color:white">
+  <select id="aiModel" style="margin-top:9px">
+    <option value="Claude-Sonnet-4.6">Claude Sonnet 4.6 (Poe)</option>
+    <option value="Claude-Opus-4.7">Claude Opus 4.7 (Poe)</option>
+    <option value="Gemini-3.1-Pro">Gemini 3.1 Pro (Poe)</option>
+    <option value="GPT-5.4">GPT-5.4 (Poe)</option>
+    <option value="gpt-5.6-luna">GPT-5.6 Luna (OpenAI)</option>
+    <option value="gpt-5.6">GPT-5.6 (OpenAI)</option>
+  </select>
+  <button id="saveAI" style="margin-top:10px;padding:12px;font-size:14px">💾 Save AI Settings</button>
+  <button id="clearAI" style="margin-top:8px;padding:10px;font-size:13px">🗑️ Clear Saved AI Key</button>
+  <div class="small">Poe API uses an OpenAI-compatible endpoint. Poe models can be selected above; switch provider to use OpenAI. For a public app, use a secure backend so the API key is not exposed in browser code.</div>
+</div>
+
+<div class="card advanced" id="tradingViewCard">
+  <div class="label">📊 TRADINGVIEW LIVE ANALYSIS</div>
+  <div class="grid">
+    <select id="tvSymbol">
+      <option value="BINANCE:BTCUSDT">BTC/USDT</option>
+      <option value="BINANCE:ETHUSDT">ETH/USDT</option>
+      <option value="BINANCE:SOLUSDT">SOL/USDT</option>
+    </select>
+    <select id="tvTimeframe">
+      <option value="5">M5 Execution</option>
+      <option value="15">M15</option>
+      <option value="60">H1</option>
+    </select>
+  </div>
+  <button class="analyze" id="tvAnalyze">🎙️ TradingView Live Analyze Karo</button>
+  <div class="small">Voice command: “JARVIS, TradingView par BTC analyze karo.”</div>
+  <div class="result" id="tvResult">
+    <span class="badge">TRADINGVIEW MODE</span>
+    <div class="text" style="margin-top:8px">
+      TradingView chart open karke market symbol select karein. Live structured analysis ke liye connected data bridge/webhook required ho sakta hai.
+    </div>
+  </div>
+</div>
+
+
+<div class="card advanced">
+  <div class="label">🔗 TRADINGVIEW WEBHOOK BRIDGE</div>
+  <input id="webhookUrl" placeholder="https://YOUR-SERVER/webhook">
+  <div class="grid">
+    <button id="saveWebhook" style="padding:12px;font-size:14px">💾 Save URL</button>
+    <button id="pollWebhook" style="padding:12px;font-size:14px">🔄 Check Live Signal</button>
+  </div>
+  <div class="result" id="webhookResult">
+    <span class="badge">WAITING FOR TRADINGVIEW</span>
+    <div class="text" style="margin-top:8px">
+      TradingView webhook se aane wala latest alert yahan dikhega.
+    </div>
+  </div>
+</div>
+
+<div class="card advanced">
+  <div class="label">⚡ ADVANCED SMC + ICT + PRICE ACTION</div>
+  <div class="grid">
+    <select id="symbol">
+      <option value="BTCUSDT">BTC/USDT</option>
+      <option value="ETHUSDT">ETH/USDT</option>
+      <option value="SOLUSDT">SOL/USDT</option>
+    </select>
+    <select id="execTf">
+      <option value="5m">M5 Execution</option>
+      <option value="15m">M15</option>
+    </select>
+  </div>
+  <button class="analyze" id="analyze">⚡ Best Setup Analyze Karo</button>
+  <div class="result" id="analysisResult">
+    <span class="badge">H1 → M15 → M5</span>
+    <div class="text" style="margin-top:8px">Live market data se confluence check hoga.</div>
+  </div>
+</div>
+
+  <div class="small">Advanced version: voice input + voice reply. Chrome/Android par best chalega.</div>
+  <div class="card advanced" id="smartTools">
+    <div class="label">⚡ SMART MOBILE ASSISTANT</div>
+    <div class="grid">
+      <button id="wakeBtn" style="padding:12px;font-size:14px">🔊 Wake Mode: OFF</button>
+      <button id="clearChat" style="padding:12px;font-size:14px">🧹 Clear Chat</button>
+    </div>
+    <div class="grid" style="margin-top:9px">
+      <button id="openYT" style="padding:12px;font-size:14px">▶️ YouTube</button>
+      <button id="openMaps" style="padding:12px;font-size:14px">📍 Maps</button>
+    </div>
+    <div class="grid" style="margin-top:9px">
+      <button id="openWA" style="padding:12px;font-size:14px">💬 WhatsApp</button>
+      <button id="openGoogle" style="padding:12px;font-size:14px">🔎 Google</button>
+    </div>
+    <div class="small">Voice examples: “Jarvis YouTube kholo”, “Jarvis Google par search karo…”, “Jarvis yaad rakho…”, “Jarvis mera naam … hai”.</div>
+  </div>
+
+  <div class="card advanced">
+    <div class="label">🧠 PERSONAL MEMORY</div>
+    <div class="text" id="memoryView">No saved memories.</div>
+    <button id="clearMemory" style="margin-top:10px;padding:12px;font-size:14px">🗑️ Clear Memory</button>
+  </div>
+
+</div>
+
+<script>
+const statusEl = document.getElementById("status");
+const youEl = document.getElementById("you");
+const jarvisEl = document.getElementById("jarvis");
+const mic = document.getElementById("mic");
+const orb = document.getElementById("orb");
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition;
+
+function say(text){ speak(text); }
+
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : "en-IN";
+  u.rate = 0.95;
+  u.pitch = 0.9;
+  speechSynthesis.speak(u);
+}
+
+function reply(command){
+  const c = command.toLowerCase().trim();
+  let r = "Sorry Sir, abhi main basic mode mein hoon. Aap time, date, hello ya calculation command try kar sakte hain.";
+
+  if(c.includes("hello") || c.includes("hi") || c.includes("namaste")){
+    r = "Hello Sir. Main JARVIS hoon. Aap kaise hain?";
+  } else if(c.includes("time") || c.includes("समय")){
+    r = "Sir, abhi " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) + " baj rahe hain.";
+  } else if(c.includes("date") || c.includes("तारीख")){
+    r = "Sir, aaj " + new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"}) + " hai.";
+  } else if(c.includes("who are you") || c.includes("tum kaun")){
+    r = "Sir, main aapka personal JARVIS assistant hoon.";
+  } else if(c.includes("thank")){
+    r = "You're welcome, Sir.";
+  } else if(c.includes("2+2")){
+    r = "Sir, 2 plus 2 equals 4.";
+  }
+
+  jarvisEl.textContent = r;
+  speak(r);
+}
+
+// ===== MOBILE MICROPHONE PERMISSION / SPEECH FIX =====
+let micBusy=false;
+
+async function requestMicPermission(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    return {ok:false, message:"Browser microphone API unavailable."};
+  }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    return {ok:true};
+  }catch(err){
+    console.warn("Microphone permission:",err);
+    return {ok:false, message:err.name||"permission-error"};
+  }
+}
+
+function explainMicError(code){
+  if(code==="not-allowed" || code==="service-not-allowed"){
+    statusEl.textContent="Mic permission blocked — Chrome site permission allow karein";
+    jarvisEl.textContent="Sir, microphone permission blocked hai. Chrome me is page ki Microphone permission Allow karein. Agar file content:// se khul rahi hai aur phir bhi error aaye, JARVIS ko HTTPS/localhost par open karna hoga.";
+    return;
+  }
+  if(code==="no-speech"){
+    statusEl.textContent="No speech detected";
+    return;
+  }
+  if(code==="audio-capture"){
+    statusEl.textContent="Mic unavailable";
+    jarvisEl.textContent="Sir, microphone busy ya unavailable hai. Bluetooth/earphone mic disconnect karke dobara try karein.";
+    return;
+  }
+  statusEl.textContent="Mic error: "+code;
+}
+
+if(!SpeechRecognition){
+  statusEl.textContent = "Speech recognition supported nahi hai";
+  mic.disabled = true;
+} else {
+  recognition = new SpeechRecognition();
+  recognition.lang = "hi-IN";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    micBusy=true;
+    statusEl.textContent = "Listening...";
+    orb.classList.add("listening");
+    mic.textContent = "🛑 Listening...";
+  };
+
+  recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    youEl.textContent = text;
+    handleAIQuestion(text);
+  };
+
+  recognition.onerror = (event) => {
+    micBusy=false;
+    explainMicError(event.error);
+  };
+
+  recognition.onend = () => {
+    micBusy=false;
+    orb.classList.remove("listening");
+    if(statusEl.textContent==="Listening...") statusEl.textContent = "Ready";
+    mic.textContent = "🎙️ Talk to JARVIS";
+  };
+
+  mic.onclick = async () => {
+    if(micBusy) return;
+    statusEl.textContent="Checking microphone...";
+    const permission=await requestMicPermission();
+
+    if(!permission.ok){
+      explainMicError("not-allowed");
+      return;
+    }
+
+    try{
+      recognition.start();
+    }catch(e){
+      // Chrome can throw InvalidStateError if start is called twice.
+      console.warn("Recognition start:",e);
+      statusEl.textContent="Ready — tap mic again";
+    }
+  };
+}
+
+
+// ===== SMART MOBILE ASSISTANT LAYER =====
+const MEMORY_KEY="jarvisPersonalMemory";
+let wakeMode=false;
+let chatHistory=JSON.parse(localStorage.getItem("jarvisChatHistory")||"[]");
+
+function getMemory(){
+  try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||"[]")}catch(e){return []}
+}
+function saveMemory(text){
+  const m=getMemory();
+  m.push({text,at:new Date().toISOString()});
+  localStorage.setItem(MEMORY_KEY,JSON.stringify(m.slice(-50)));
+  renderMemory();
+}
+function renderMemory(){
+  const el=document.getElementById("memoryView");
+  if(!el) return;
+  const m=getMemory();
+  el.innerHTML=m.length ? m.slice().reverse().map(x=>`<div class="msg jarvis">${escapeHtml(x.text)}<div class="small">${new Date(x.at).toLocaleString("en-IN")}</div></div>`).join("") : "No saved memories.";
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function addChat(role,text){
+  chatHistory.push({role,text,at:Date.now()});
+  chatHistory=chatHistory.slice(-40);
+  localStorage.setItem("jarvisChatHistory",JSON.stringify(chatHistory));
+}
+function openUrl(url){window.open(url,"_blank","noopener,noreferrer")}
+function smartCommand(raw){
+  const c=raw.toLowerCase().trim();
+
+  // Memory commands
+  if(c.includes("yaad rakho")||c.includes("remember")||c.includes("save this")){
+    let text=raw.replace(/.*?(yaad rakho|remember|save this)\s*/i,"").trim();
+    if(!text) text=raw;
+    saveMemory(text);
+    const r="Sir, maine ye baat memory mein save kar li.";
+    jarvisEl.textContent=r; speak(r); addChat("jarvis",r); return true;
+  }
+  if(c.includes("memory dikhao")||c.includes("meri memory")||c.includes("what do you remember")){
+    const m=getMemory();
+    const r=m.length ? "Sir, meri memory mein "+m.length+" saved item hain. Neeche list dekh sakte hain." : "Sir, abhi koi saved memory nahi hai.";
+    jarvisEl.textContent=r; speak(r); addChat("jarvis",r); renderMemory(); return true;
+  }
+
+  // Quick mobile web shortcuts
+  if(c.includes("youtube") && (c.includes("khol")||c.includes("open"))){
+    openUrl("https://www.youtube.com/");
+    const r="Sir, YouTube khol raha hoon.";
+    jarvisEl.textContent=r;speak(r);return true;
+  }
+  if((c.includes("google")||c.includes("search")) && !c.includes("tradingview")){
+    const q=raw.replace(/.*?(google|search)(\s+par)?/i,"").replace(/karo|karein|please/ig,"").trim();
+    if(q){
+      openUrl("https://www.google.com/search?q="+encodeURIComponent(q));
+      const r="Sir, Google par search kar raha hoon.";
+      jarvisEl.textContent=r;speak(r);return true;
+    }
+  }
+  if(c.includes("maps") && (c.includes("khol")||c.includes("open"))){
+    openUrl("https://maps.google.com/");
+    const r="Sir, Google Maps khol raha hoon.";
+    jarvisEl.textContent=r;speak(r);return true;
+  }
+  if(c.includes("whatsapp") && (c.includes("khol")||c.includes("open"))){
+    openUrl("https://web.whatsapp.com/");
+    const r="Sir, WhatsApp Web khol raha hoon.";
+    jarvisEl.textContent=r;speak(r);return true;
+  }
+
+  // Calculator
+  if(/^(calculate|calc|hisab|गणना|kitna hoga)\b/i.test(raw) || /^[\d\s()+\-*/%.]+$/.test(raw)){
+    const expr=raw.replace(/^(calculate|calc|hisab|kitna hoga)\s*/i,"").replace(/[^0-9+\-*/().%\s]/g,"");
+    if(expr.trim()){
+      try{
+        const value=Function('"use strict";return ('+expr+')')();
+        if(Number.isFinite(value)){
+          const r="Sir, answer hai "+value+".";
+          jarvisEl.textContent=r;speak(r);addChat("jarvis",r);return true;
+        }
+      }catch(e){}
+    }
+  }
+
+  // Time/date/device-friendly status
+  if(c.includes("battery")){
+    if(navigator.getBattery){
+      navigator.getBattery().then(b=>{
+        const r="Sir, battery "+Math.round(b.level*100)+" percent hai.";
+        jarvisEl.textContent=r;speak(r);
+      });
+    } else { const r="Sir, is browser mein battery status available nahi hai.";jarvisEl.textContent=r;speak(r); }
+    return true;
+  }
+  return false;
+}
+
+// Wrap the original reply so smart local commands run before basic commands.
+const _replyBeforeSmart=reply;
+reply=function(commandText){
+  addChat("you",commandText);
+  if(smartCommand(commandText)) return;
+  _replyBeforeSmart(commandText);
+};
+
+const wakeBtn=document.getElementById("wakeBtn");
+if(wakeBtn){
+  wakeBtn.onclick=()=>{
+    wakeMode=!wakeMode;
+    wakeBtn.textContent="🔊 Wake Mode: "+(wakeMode?"ON":"OFF");
+    const r=wakeMode ? "Sir, wake mode on hai. Mic button se command dein." : "Sir, wake mode off hai.";
+    statusEl.textContent=wakeMode?"Wake Mode":"Ready"; speak(r);
+  };
+}
+document.getElementById("clearChat")?.addEventListener("click",()=>{
+  chatHistory=[];localStorage.removeItem("jarvisChatHistory");
+  say("Sir, chat history clear kar di.");
+});
+document.getElementById("clearMemory")?.addEventListener("click",()=>{
+  localStorage.removeItem(MEMORY_KEY);renderMemory();say("Sir, personal memory clear kar di.");
+});
+document.getElementById("openYT")?.addEventListener("click",()=>openUrl("https://www.youtube.com/"));
+document.getElementById("openMaps")?.addEventListener("click",()=>openUrl("https://maps.google.com/"));
+document.getElementById("openWA")?.addEventListener("click",()=>openUrl("https://web.whatsapp.com/"));
+document.getElementById("openGoogle")?.addEventListener("click",()=>openUrl("https://www.google.com/"));
+renderMemory();
+
+// ===== JARVIS AI BRAIN — OPENAI + POE =====
+const textInput=document.getElementById("textInput");
+const sendText=document.getElementById("sendText");
+const apiKeyEl=document.getElementById("apiKey");
+const aiModelEl=document.getElementById("aiModel");
+const aiProviderEl=document.getElementById("aiProvider");
+
+const savedProvider=localStorage.getItem("jarvisAIProvider")||"poe";
+const savedKey=(savedProvider==="poe"
+  ? localStorage.getItem("jarvisPoeKey")
+  : localStorage.getItem("jarvisOpenAIKey"))||"";
+
+aiProviderEl.value=savedProvider;
+apiKeyEl.value=savedKey;
+
+function syncAIFields(){
+  const p=aiProviderEl.value;
+  const key=(p==="poe"
+    ? localStorage.getItem("jarvisPoeKey")
+    : localStorage.getItem("jarvisOpenAIKey"))||"";
+  apiKeyEl.value=key;
+  apiKeyEl.placeholder=p==="poe" ? "Poe API key" : "OpenAI API key";
+  const savedModel=localStorage.getItem("jarvisAIModel_"+p);
+  if(savedModel) aiModelEl.value=savedModel;
+  else if(p==="poe") aiModelEl.value="Claude-Sonnet-4.6";
+  else aiModelEl.value="gpt-5.6-luna";
+}
+syncAIFields();
+
+aiProviderEl.addEventListener("change",syncAIFields);
+
+function saveAI(){
+  const p=aiProviderEl.value;
+  const key=apiKeyEl.value.trim();
+  localStorage.setItem("jarvisAIProvider",p);
+  localStorage.setItem("jarvisAIModel_"+p,aiModelEl.value);
+  if(p==="poe") localStorage.setItem("jarvisPoeKey",key);
+  else localStorage.setItem("jarvisOpenAIKey",key);
+  say("Sir, "+(p==="poe"?"Poe":"OpenAI")+" AI settings save ho gayi hain.");
+}
+
+async function askAI(question){
+  const provider=aiProviderEl.value;
+  const key=apiKeyEl.value.trim() ||
+    (provider==="poe"
+      ? localStorage.getItem("jarvisPoeKey")
+      : localStorage.getItem("jarvisOpenAIKey")) || "";
+
+  if(!key){
+    const c=question.toLowerCase();
+    if(c.includes("hello")||c.includes("hi")||c.includes("namaste"))
+      return "Hello Sir. Main JARVIS hoon. Aapki kya madad kar sakta hoon?";
+    return "Sir, "+(provider==="poe"?"Poe":"OpenAI")+" API key set karein. Basic commands abhi bhi available hain.";
+  }
+
+  const model=aiModelEl.value;
+  const systemText=`You are JARVIS, a smart mobile personal AI assistant.
+Reply in the user's language (Hindi, Hinglish, or English). Address the user as Sir when natural.
+Be concise but useful. Help with planning, explanations, coding, calculations, trading analysis, reminders/plans, and everyday tasks.
+You can use the capabilities actually exposed by this web app: voice conversation, local personal memory, web quick links, calculator, battery status, and TradingView/Binance analysis.
+Never claim to control Android calls, SMS, contacts, camera, Bluetooth, alarms, settings, or other device functions unless this web app actually exposes that function.
+Do not invent facts or pretend an action happened when it did not.`;
+
+  let endpoint, body;
+
+  if(provider==="poe"){
+    // Poe provides an OpenAI-compatible Responses endpoint.
+    endpoint="https://api.poe.com/v1/responses";
+    body={
+      model,
+      input:[
+        {role:"system",content:[{type:"input_text",text:systemText}]},
+        {role:"user",content:[{type:"input_text",text:question}]}
+      ]
+    };
+  }else{
+    endpoint="https://api.openai.com/v1/responses";
+    body={
+      model,
+      input:[
+        {role:"system",content:[{type:"input_text",text:systemText}]},
+        {role:"user",content:[{type:"input_text",text:question}]}
+      ]
+    };
+  }
+
+  try{
+    const res=await fetch(endpoint,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+key
+      },
+      body:JSON.stringify(body)
+    });
+
+    if(!res.ok){
+      const errText=await res.text().catch(()=> "");
+      throw new Error("HTTP "+res.status+" "+errText.slice(0,180));
+    }
+
+    const data=await res.json();
+    let out=data.output_text || "";
+
+    if(!out && Array.isArray(data.output)){
+      for(const item of data.output){
+        if(Array.isArray(item.content)){
+          for(const part of item.content){
+            if(part.text) out += part.text;
+          }
+        }
+      }
+    }
+
+    if(!out && data.choices?.[0]?.message?.content){
+      out=data.choices[0].message.content;
+    }
+
+    return out.trim() || "Sir, AI ne empty response diya.";
+  }catch(err){
+    console.error(err);
+    return "Sir, "+(provider==="poe"?"Poe":"OpenAI")+" connection error. API key, model aur internet connection check karein.";
+  }
+}
+
+async function handleAIQuestion(q){
+  addChat("you",q);
+  const local=smartCommand(q);
+  if(local) return;
+
+  jarvisEl.textContent="Thinking...";
+  const ans=await askAI(q);
+  jarvisEl.textContent=ans;
+  addChat("jarvis",ans);
+  speak(ans);
+}
+
+sendText.onclick=()=>{
+  const q=textInput.value.trim();
+  if(!q) return;
+  youEl.textContent=q;
+  textInput.value="";
+  handleAIQuestion(q);
+};
+
+textInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){
+    e.preventDefault();
+    sendText.click();
+  }
+});
+
+document.getElementById("saveAI").onclick=saveAI;
+
+document.getElementById("clearAI").onclick=()=>{
+  localStorage.removeItem("jarvisPoeKey");
+  localStorage.removeItem("jarvisOpenAIKey");
+  apiKeyEl.value="";
+  say("Sir, saved AI keys clear kar di gayi hain.");
+};
+
+// ===== ADVANCED SMC + ICT + PRICE ACTION ENGINE =====
+const analysisResult = document.getElementById("analysisResult");
+const analyzeBtn = document.getElementById("analyze");
+const symbolEl = document.getElementById("symbol");
+const execTfEl = document.getElementById("execTf");
+
+const BINANCE = "https://api.binance.com/api/v3";
+
+async function candles(symbol, interval, limit=250){
+  const res = await fetch(`${BINANCE}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  if(!res.ok) throw new Error("Binance data unavailable");
+  return await res.json();
+}
+function nums(k){ return {o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5],t:k[0]}; }
+function atr(a,n=14){
+  let tr=[];
+  for(let i=1;i<a.length;i++){
+    tr.push(Math.max(a[i].h-a[i].l,Math.abs(a[i].h-a[i-1].c),Math.abs(a[i].l-a[i-1].c)));
+  }
+  const x=tr.slice(-n);
+  return x.reduce((s,v)=>s+v,0)/(x.length||1);
+}
+function rangeHigh(a,n){return Math.max(...a.slice(-n).map(x=>x.h));}
+function rangeLow(a,n){return Math.min(...a.slice(-n).map(x=>x.l));}
+function swingHigh(a,i,left=2,right=2){
+  for(let j=1;j<=left;j++) if(a[i].h<=a[i-j].h) return false;
+  for(let j=1;j<=right;j++) if(a[i].h<a[i+j].h) return false;
+  return true;
+}
+function swingLow(a,i,left=2,right=2){
+  for(let j=1;j<=left;j++) if(a[i].l>=a[i-j].l) return false;
+  for(let j=1;j<=right;j++) if(a[i].l>a[i+j].l) return false;
+  return true;
+}
+function swings(a){
+  const hs=[],ls=[];
+  for(let i=3;i<a.length-3;i++){
+    if(swingHigh(a,i)) hs.push({i,p:a[i].h});
+    if(swingLow(a,i)) ls.push({i,p:a[i].l});
+  }
+  return {hs,ls};
+}
+function fmt(p){ return p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:6}); }
+function pct(x){return Math.max(0,Math.min(99,Math.round(x)));}
+
+function analyzeTF(a){
+  const last=a[a.length-1], prev=a[a.length-2], A=atr(a);
+  const hi20=rangeHigh(a,20), lo20=rangeLow(a,20);
+  const hi50=rangeHigh(a,50), lo50=rangeLow(a,50);
+  const mid50=(hi50+lo50)/2;
+  const sw=swings(a);
+  const recentH=sw.hs.slice(-3), recentL=sw.ls.slice(-3);
+  const bullish=last.c>mid50 && last.c>prev.c;
+  const bearish=last.c<mid50 && last.c<prev.c;
+
+  // Liquidity pools: equal-ish highs/lows and recent external levels.
+  const tol=A*0.35;
+  let eqH=false,eqL=false;
+  if(recentH.length>=2) eqH=Math.abs(recentH.at(-1).p-recentH.at(-2).p)<=tol;
+  if(recentL.length>=2) eqL=Math.abs(recentL.at(-1).p-recentL.at(-2).p)<=tol;
+
+  // Sweep/raid: current candle pierces a recent level and closes back through it.
+  const priorH=rangeHigh(a.slice(0,-1),12), priorL=rangeLow(a.slice(0,-1),12);
+  const sellSweep=last.l<priorL && last.c>priorL;
+  const buySweep=last.h>priorH && last.c<priorH;
+
+  const body=Math.abs(last.c-last.o);
+  const displacement=body>A*1.05 && body/(last.h-last.l||1)>0.55;
+  const bullishDisp=displacement && last.c>last.o;
+  const bearishDisp=displacement && last.c<last.o;
+
+  const prevBody=Math.abs(prev.c-prev.o);
+  const bullishEngulf=last.c>last.o && prev.c<prev.o && last.c>=prev.o && last.o<=prev.c;
+  const bearishEngulf=last.c<last.o && prev.c>prev.o && last.o>=prev.c && last.c<=prev.o;
+  const pinBull=(Math.min(last.o,last.c)-last.l)>body*1.5;
+  const pinBear=(last.h-Math.max(last.o,last.c))>body*1.5;
+
+  const bullFvg=a.length>=3 && a.at(-3).h<a.at(-1).l;
+  const bearFvg=a.length>=3 && a.at(-3).l>a.at(-1).h;
+
+  // Simple MSS/CHoCH proxy: close beyond recent swing, with direction change.
+  const priorSwingH=recentH.length?recentH.at(-1).p:hi20;
+  const priorSwingL=recentL.length?recentL.at(-1).p:lo20;
+  const bullShift=last.c>priorSwingH;
+  const bearShift=last.c<priorSwingL;
+
+  return {last,prev,A,hi20,lo20,hi50,lo50,mid50,bullish,bearish,eqH,eqL,sellSweep,buySweep,
+    displacement,bullishDisp,bearishDisp,bullishEngulf,bearishEngulf,pinBull,pinBear,bullFvg,bearFvg,
+    bullShift,bearShift,priorSwingH,priorSwingL,priorH,priorL};
+}
+
+function buildSetup(h1,m15,m5){
+  let longScore=0,shortScore=0,longReasons=[],shortReasons=[];
+  if(h1.bullish){longScore+=2;longReasons.push("H1 bullish bias");}
+  if(h1.bearish){shortScore+=2;shortReasons.push("H1 bearish bias");}
+  if(m15.bullish){longScore+=2;longReasons.push("M15 bullish structure/bias");}
+  if(m15.bearish){shortScore+=2;shortReasons.push("M15 bearish structure/bias");}
+
+  if(m5.sellSweep){longScore+=3;longReasons.push("Sell-side liquidity sweep");}
+  if(m5.buySweep){shortScore+=3;shortReasons.push("Buy-side liquidity sweep");}
+  if(m5.bullShift){longScore+=2;longReasons.push("Bullish MSS / CHoCH proxy");}
+  if(m5.bearShift){shortScore+=2;shortReasons.push("Bearish MSS / CHoCH proxy");}
+  if(m5.bullishDisp){longScore+=2;longReasons.push("Bullish displacement");}
+  if(m5.bearishDisp){shortScore+=2;shortReasons.push("Bearish displacement");}
+  if(m5.bullFvg){longScore+=1;longReasons.push("Bullish FVG / imbalance");}
+  if(m5.bearFvg){shortScore+=1;shortReasons.push("Bearish FVG / imbalance");}
+  if(m5.eqL){longScore+=1;longReasons.push("Equal-low liquidity");}
+  if(m5.eqH){shortScore+=1;shortReasons.push("Equal-high liquidity");}
+  if(m5.bullishEngulf||m5.pinBull){longScore+=1;longReasons.push("Bullish price-action confirmation");}
+  if(m5.bearishEngulf||m5.pinBear){shortScore+=1;shortReasons.push("Bearish price-action confirmation");}
+
+  const long=longScore>=8 && longScore>shortScore+1;
+  const short=shortScore>=8 && shortScore>longScore+1;
+  if(!long && !short) return {
+    valid:false,bestConcept:"Confluence incomplete",score:Math.max(longScore,shortScore),
+    reasons:["Liquidity sweep / raid, structure shift and entry confirmation are not aligned."],
+    decision:"NO TRADE"
+  };
+
+  const side=long?"LONG":"SHORT", s=long?m5.sellSweep:m5.buySweep;
+  const price=m5.last.c, A=m5.A;
+  let sl;
+  if(long){
+    const structural=Math.min(m5.priorL,m5.priorH,price-A*0.5);
+    sl=structural-A*0.25;
+  }else{
+    const structural=Math.max(m5.priorH,m5.priorL,price+A*0.5);
+    sl=structural+A*0.25;
+  }
+  if(long && sl>=price) sl=price-A;
+  if(short && sl<=price) sl=price+A;
+
+  const risk=Math.abs(price-sl);
+  const tp1=long?price+risk*2:price-risk*2;
+  const tp2=long?price+risk*3:price-risk*3;
+  const tp3=long?price+risk*4:price-risk*4;
+  const score=long?longScore:shortScore;
+  const confidence=pct(48+score*4+((long&&h1.bullish)||(short&&h1.bearish)?8:0));
+
+  let concept;
+  if((long&&m5.sellSweep)||(short&&m5.buySweep)){
+    concept=(long?"Liquidity Sweep + ":"Liquidity Raid + ")+(long&&m5.bullFvg||short&&m5.bearFvg?"FVG Retest":"MSS/CHoCH");
+  }else{
+    concept=(long?"MSS + Displacement":"Bearish MSS + Displacement")+
+      ((long&&m5.bullFvg)||(short&&m5.bearFvg)?" + FVG":"");
+  }
+  return {valid:true,side,entry:price,sl,tp1,tp2,tp3,score,confidence,bestConcept:concept,
+    reasons:long?longReasons:shortReasons,decision:"SETUP VALID",
+    invalidation:long?"Price SL ke neeche structure invalidate kare to setup invalid.":"Price SL ke upar structure invalidate kare to setup invalid."};
+}
+
+async function runAdvancedAnalysis(){
+  analyzeBtn.disabled=true; analyzeBtn.textContent="⏳ Analyzing...";
+  analysisResult.innerHTML='<span class="badge">LIVE DATA</span><div class="text">H1 → M15 → M5 confluence calculate ho raha hai...</div>';
+  try{
+    const sym=symbolEl.value, tf=execTfEl.value;
+    const [h1raw,m15raw,m5raw]=await Promise.all([
+      candles(sym,"1h",250),candles(sym,"15m",250),candles(sym,tf,250)
+    ]);
+    const h1=analyzeTF(h1raw.map(nums)),m15=analyzeTF(m15raw.map(nums)),m5=analyzeTF(m5raw.map(nums));
+    const r=buildSetup(h1,m15,m5);
+    if(!r.valid){
+      analysisResult.className="result";
+      analysisResult.innerHTML=`<div class="trade">⛔ NO TRADE</div>
+        <span class="badge">Best Concept: ${r.bestConcept}</span>
+        <hr><b>Reason:</b><ul><li>Liquidity sweep / raid confirmation incomplete</li>
+        <li>Structure confirmation incomplete</li><li>Displacement or entry confirmation weak/incomplete</li></ul>
+        <div class="text"><b>Final Decision:</b> NO TRADE</div>`;
+      say("Sir, abhi best setup nahi bana hai. Confluence complete nahi hai. Wait for confirmation.");
+      return;
+    }
+    const rr=(2).toFixed(0);
+    analysisResult.className="result";
+    analysisResult.innerHTML=`<div class="trade">${sym.replace("USDT","/USDT")} — ${r.side} SETUP</div>
+      <span class="badge">Best Concept: ${r.bestConcept}</span>
+      <div class="kv">
+        <div><b>ENTRY</b>${fmt(r.entry)}</div><div><b>STOP LOSS</b>${fmt(r.sl)}</div>
+        <div><b>TP1</b>${fmt(r.tp1)}</div><div><b>TP2</b>${fmt(r.tp2)}</div>
+        <div><b>TP3</b>${fmt(r.tp3)}</div><div><b>R:R</b>1:2 / 1:3 / 1:4</div>
+        <div><b>CONFIDENCE</b>${r.confidence}%</div><div><b>TIMEFRAME</b>H1 → M15 → ${tf.toUpperCase()}</div>
+      </div>
+      <hr><b>Why:</b><ul>${r.reasons.map(x=>`<li>${x}</li>`).join("")}</ul>
+      <div class="text"><b>Invalidation:</b> ${r.invalidation}</div>
+      <div class="text" style="margin-top:8px"><b>Final Decision:</b> ${r.decision}</div>
+      <div class="small">Educational/confluence analysis only — not guaranteed financial advice.</div>`;
+    const voice=`Sir, ${sym.replace("USDT"," USDT")} ${r.side} setup. Best concept ${r.bestConcept}. Entry ${fmt(r.entry)}, stop loss ${fmt(r.sl)}, TP1 ${fmt(r.tp1)}, TP2 ${fmt(r.tp2)}, TP3 ${fmt(r.tp3)}. Risk reward one is to two, one is to three, one is to four. Confidence ${r.confidence} percent. Final decision, setup valid.`;
+    say(voice);
+  }catch(e){
+    analysisResult.innerHTML=`<div class="trade">⚠️ DATA ERROR</div><div class="text">Live Binance data fetch nahi ho paya. Internet/API availability check karein.</div>`;
+    say("Sir, live market data fetch nahi ho paya. Please try again.");
+  }finally{
+    analyzeBtn.disabled=false; analyzeBtn.textContent="⚡ Best Setup Analyze Karo";
+  }
+}
+analyzeBtn.addEventListener("click",runAdvancedAnalysis);
+
+
+// ===== TRADINGVIEW LIVE COMMAND / CHART BRIDGE =====
+const tvSymbolEl=document.getElementById("tvSymbol");
+const tvTfEl=document.getElementById("tvTimeframe");
+const tvResult=document.getElementById("tvResult");
+const tvAnalyze=document.getElementById("tvAnalyze");
+
+function tvSymbolName(){
+  return tvSymbolEl.value.split(":").pop().replace("USDT","/USDT");
+}
+function openTradingViewChart(){
+  const symbol=encodeURIComponent(tvSymbolEl.value);
+  const url="https://www.tradingview.com/chart/?symbol="+symbol;
+  window.open(url,"_blank");
+}
+
+async function tradingViewAnalyze(){
+  tvAnalyze.disabled=true;
+  tvAnalyze.textContent="⏳ Live analysis...";
+  const symbol=tvSymbolEl.value.split(":").pop();
+  const tf=tvTfEl.value;
+  tvResult.innerHTML='<span class="badge">LIVE MARKET</span><div class="text">TradingView analysis bridge start ho raha hai...</div>';
+
+  try{
+    // TradingView itself is opened for the user's live chart.
+    // The structured candle analysis uses the same exchange feed so the browser
+    // can calculate SMC/ICT confluence without scraping TradingView's UI.
+    openTradingViewChart();
+
+    const [h1raw,m15raw,m5raw]=await Promise.all([
+      candles(symbol,"1h",250),
+      candles(symbol,"15m",250),
+      candles(symbol,tf==="60"?"1h":"5m",250)
+    ]);
+    const h1=analyzeTF(h1raw.map(nums));
+    const m15=analyzeTF(m15raw.map(nums));
+    const m5=analyzeTF(m5raw.map(nums));
+    const r=buildSetup(h1,m15,m5);
+
+    if(!r.valid){
+      tvResult.innerHTML=`<div class="trade">⛔ NO TRADE</div>
+        <span class="badge">TradingView: ${tvSymbolName()}</span>
+        <hr><b>Reason:</b><ul>
+        <li>Liquidity sweep / raid confirmation incomplete</li>
+        <li>Market structure confirmation incomplete</li>
+        <li>Displacement / FVG / price-action confluence incomplete</li>
+        </ul><div class="text"><b>Final Decision:</b> NO TRADE</div>`;
+      say("Sir, TradingView market check complete. Abhi best setup nahi bana hai. Confluence complete nahi hai. Wait for confirmation.");
+      return;
+    }
+
+    tvResult.innerHTML=`<div class="trade">${tvSymbolName()} — ${r.side} SETUP</div>
+      <span class="badge">Best Concept: ${r.bestConcept}</span>
+      <div class="kv">
+        <div><b>ENTRY</b>${fmt(r.entry)}</div>
+        <div><b>STOP LOSS</b>${fmt(r.sl)}</div>
+        <div><b>TP1</b>${fmt(r.tp1)}</div>
+        <div><b>TP2</b>${fmt(r.tp2)}</div>
+        <div><b>TP3</b>${fmt(r.tp3)}</div>
+        <div><b>R:R</b>1:2 / 1:3 / 1:4</div>
+        <div><b>CONFIDENCE</b>${r.confidence}%</div>
+        <div><b>FLOW</b>H1 → M15 → M5</div>
+      </div>
+      <hr><b>Why:</b><ul>${r.reasons.map(x=>`<li>${x}</li>`).join("")}</ul>
+      <div class="text"><b>Invalidation:</b> ${r.invalidation}</div>
+      <div class="text" style="margin-top:8px"><b>Final Decision:</b> ${r.decision}</div>
+      <div class="small">TradingView chart opened. Analysis is confluence-based and not guaranteed financial advice.</div>`;
+
+    say(`Sir, TradingView market check complete. ${tvSymbolName()} ${r.side} setup. Best concept ${r.bestConcept}. Entry ${fmt(r.entry)}, stop loss ${fmt(r.sl)}, TP1 ${fmt(r.tp1)}, TP2 ${fmt(r.tp2)}, TP3 ${fmt(r.tp3)}. Confidence ${r.confidence} percent. Final decision, setup valid.`);
+  }catch(e){
+    tvResult.innerHTML='<div class="trade">⚠️ LIVE DATA ERROR</div><div class="text">TradingView chart open ho sakta hai, lekin structured live candle data fetch nahi hua. Internet/API access check karein.</div>';
+    say("Sir, TradingView chart open ho gaya hai, lekin live structured market data fetch nahi ho paya.");
+  }finally{
+    tvAnalyze.disabled=false;
+    tvAnalyze.textContent="🎙️ TradingView Live Analyze Karo";
+  }
+}
+tvAnalyze.addEventListener("click",tradingViewAnalyze);
+
+// Extend the existing JARVIS command engine with TradingView voice/text commands.
+const originalReply=reply;
+reply=function(commandText){
+  const c=commandText.toLowerCase().trim();
+  const tvWords=c.includes("tradingview")||c.includes("trading view");
+  const analysisWords=c.includes("analyze")||c.includes("analysis")||c.includes("analyse")||c.includes("setup");
+  if(tvWords && analysisWords){
+    if(c.includes("eth")) tvSymbolEl.value="BINANCE:ETHUSDT";
+    else if(c.includes("sol")) tvSymbolEl.value="BINANCE:SOLUSDT";
+    else tvSymbolEl.value="BINANCE:BTCUSDT";
+
+    if(c.includes("m15")||c.includes("15 minute")||c.includes("15m")) tvTfEl.value="15";
+    else if(c.includes("h1")||c.includes("1 hour")||c.includes("1h")) tvTfEl.value="60";
+    else tvTfEl.value="5";
+
+    youEl.textContent=commandText;
+    tradingViewAnalyze();
+    return;
+  }
+  if((c.includes("tradingview")||c.includes("trading view")) &&
+     (c.includes("khol")||c.includes("open"))){
+    say("Sir, TradingView khol raha hoon.");
+    openTradingViewChart();
+    return;
+  }
+  originalReply(commandText);
+};
+
+
+// ===== TRADINGVIEW WEBHOOK BRIDGE =====
+// A static HTML page cannot receive an inbound TradingView webhook directly.
+// This UI polls a small HTTPS bridge endpoint that stores the latest alert.
+const webhookUrlEl=document.getElementById("webhookUrl");
+const saveWebhookBtn=document.getElementById("saveWebhook");
+const pollWebhookBtn=document.getElementById("pollWebhook");
+const webhookResult=document.getElementById("webhookResult");
+const savedWebhook=localStorage.getItem("jarvisTradingViewWebhook")||"";
+webhookUrlEl.value=savedWebhook;
+
+saveWebhookBtn.onclick=()=>{
+  const u=webhookUrlEl.value.trim();
+  if(!u){say("Sir, webhook URL enter karein.");return;}
+  localStorage.setItem("jarvisTradingViewWebhook",u);
+  say("Sir, TradingView webhook URL save ho gaya.");
+};
+
+async function checkTradingViewWebhook(silent=false){
+  const u=webhookUrlEl.value.trim()||localStorage.getItem("jarvisTradingViewWebhook")||"";
+  if(!u){ if(!silent) say("Sir, pehle webhook URL save karein."); return; }
+  try{
+    const base=u.replace(/\/webhook\/?$/,"");
+    const r=await fetch(base+"/latest",{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    if(!d || !d.timestamp){
+      webhookResult.innerHTML='<span class="badge">NO ALERT YET</span><div class="text">TradingView se abhi koi signal nahi aaya.</div>';
+      return;
+    }
+    const side=(d.side||"WAIT").toUpperCase();
+    webhookResult.innerHTML=`
+      <div class="trade">${d.symbol||"MARKET"} — ${side}</div>
+      <span class="badge">TradingView Webhook</span>
+      <div class="kv">
+        <div><b>PRICE</b>${d.price??"-"}</div>
+        <div><b>TIMEFRAME</b>${d.timeframe??"-"}</div>
+        <div><b>CONCEPT</b>${d.concept??"-"}</div>
+        <div><b>CONFIDENCE</b>${d.confidence??"-"}%</div>
+      </div>
+      <div class="text" style="margin-top:10px"><b>Message:</b> ${d.message??"TradingView alert received."}</div>
+      <div class="small">${new Date(d.timestamp).toLocaleString("en-IN")}</div>`;
+    if(!silent) say(`Sir, TradingView se latest ${side} alert receive hua. ${d.symbol||""}. Concept ${d.concept||"available nahi hai"}.`);
+  }catch(e){
+    webhookResult.innerHTML='<span class="badge">BRIDGE OFFLINE</span><div class="text">Webhook bridge reachable nahi hai. URL aur server check karein.</div>';
+    if(!silent) say("Sir, TradingView webhook bridge reachable nahi hai.");
+  }
+}
+pollWebhookBtn.onclick=()=>checkTradingViewWebhook(false);
+setInterval(()=>checkTradingViewWebhook(true),15000);
+
+</script>
+</body>
+</html>
